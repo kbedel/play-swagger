@@ -74,11 +74,8 @@ object SwaggerParameterMapper {
 
       val overrideMatchers: Seq[MappingFunction] = mappingOverrides.map(
         definition ⇒ {
-          val shortName: String = removeKnownPrefixes(definition.fromType)
-          val re = s"(?i)$shortName".r
-          val t: PartialFunction[String, SwaggerParameter] = { case re ⇒ swaggerParam(definition.toType, definition.toFormat) }
-          println(re.toString())
-          t
+          val re = s"(?i)${removeKnownPrefixes(definition.fromType)}".r
+          PartialFunction[String, SwaggerParameter]({ case re() ⇒ swaggerParam(definition.toType, definition.toFormat) })
         }
       )
 
