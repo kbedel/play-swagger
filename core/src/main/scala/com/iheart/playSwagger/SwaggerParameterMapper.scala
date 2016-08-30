@@ -22,7 +22,9 @@ object SwaggerParameterMapper {
     def swaggerParam(tp: String, format: Option[String] = None, required: Boolean = true, enum: Option[Seq[String]] = None) =
       SwaggerParameter(parameter.name, `type` = Some(tp), format = format, required = required, enum = enum)
 
-    val typeName = parameter.typeName.replaceAll("(scala.)|(java.lang.)|(math.)|(org.joda.time.)", "")
+    def removeKnownPrefixes(name: String) = name.replaceAll("(scala.)|(java.lang.)|(math.)|(org.joda.time.)", "")
+
+    val typeName = removeKnownPrefixes(parameter.typeName)
 
     val defaultValueO: Option[JsValue] = {
       parameter.default.map { value ⇒
@@ -69,9 +71,14 @@ object SwaggerParameterMapper {
       val default: MappingFunction = {
         case unknown ⇒ swaggerParam(unknown.toLowerCase())
       }
+
       val overrideMatchers: Seq[MappingFunction] = mappingOverrides.map(
         definition ⇒ {
-          PartialFunction[String, SwaggerParameter]({ case definition.fromType ⇒ swaggerParam(definition.toType, definition.toFormat) })
+          val shortName: String = removeKnownPrefixes(definition.fromType)
+          val re = s"(?i)$shortName".r
+          val t: PartialFunction[String, SwaggerParameter] = { case re ⇒ swaggerParam(definition.toType, definition.toFormat) }
+          println(re.toString())
+          t
         }
       )
 
@@ -106,8 +113,9 @@ object SwaggerParameterMapper {
 
 }
 
-case class SwaggerMapping(fromType: String, toType: String, toFormat: Option[String])
+case class SwaggerMapping(fromType: String, toType: String, toFormat: Option[String] = None)
 
 object SwaggerMapping {
   implicit val format = Json.format[SwaggerMapping]
+  implicit val defaultMapping: Seq[SwaggerMapping] = Seq()
 }

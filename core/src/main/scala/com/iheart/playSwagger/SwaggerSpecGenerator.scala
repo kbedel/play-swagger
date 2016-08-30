@@ -14,13 +14,13 @@ import scala.util.{Try, Success, Failure}
 
 object SwaggerSpecGenerator {
   private val marker = "##"
-  def apply(domainNameSpaces: String*)(implicit cl: ClassLoader): SwaggerSpecGenerator = SwaggerSpecGenerator(PrefixDomainModelQualifier(domainNameSpaces: _*))
+  def apply(domainNameSpaces: String*)(implicit cl: ClassLoader, mappings: Seq[SwaggerMapping]): SwaggerSpecGenerator = SwaggerSpecGenerator(PrefixDomainModelQualifier(domainNameSpaces: _*))
 }
 
 final case class SwaggerSpecGenerator(
   modelQualifier:        DomainModelQualifier = PrefixDomainModelQualifier(),
   defaultPostBodyFormat: String               = "application/json"
-)(implicit cl: ClassLoader) {
+)(implicit cl: ClassLoader, mappings: Seq[SwaggerMapping]) {
 
   // routes with their prefix
   type Routes = (String, Seq[Route])
