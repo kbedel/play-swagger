@@ -8,7 +8,9 @@ import scala.util.Try
 
 object SwaggerParameterMapper {
 
-  def mapParam(parameter: Parameter, modelQualifier: DomainModelQualifier = PrefixDomainModelQualifier())(implicit cl: ClassLoader): SwaggerParameter = {
+  type MappingFunction = PartialFunction[String, SwaggerParameter]
+
+  def mapParam(parameter: Parameter, modelQualifier: DomainModelQualifier = PrefixDomainModelQualifier())(implicit cl: ClassLoader, mappingOverrides: Seq[SwaggerMapping] = Seq()): SwaggerParameter = {
 
     def higherOrderType(higherOrder: String, typeName: String): Option[String] = {
       s"$higherOrder\\[(\\S+)\\]".r.findFirstMatchIn(typeName).map(_.group(1))
@@ -54,19 +56,30 @@ object SwaggerParameterMapper {
       param.copy(required = false, default = defaultValueO)
     }
 
-    def generalParam(tpe: String = typeName) =
-      (tpe match {
-        case ci"Int"                     ⇒ swaggerParam("integer", Some("int32"))
-        case ci"Long"                    ⇒ swaggerParam("integer", Some("int64"))
-        case ci"Double" | ci"BigDecimal" ⇒ swaggerParam("number", Some("double"))
-        case ci"Float"                   ⇒ swaggerParam("number", Some("float"))
-        case ci"DateTime"                ⇒ swaggerParam("integer", Some("epoch"))
-        case ci"Any"                     ⇒ swaggerParam("any").copy(example = Some(JsString("any JSON value")))
-        case unknown                     ⇒ swaggerParam(unknown.toLowerCase())
-      }).copy(
+    def generalParam(tpe: String = typeName) = {
+      val base: Seq[MappingFunction] = Seq(
+        { case ci"Int" ⇒ swaggerParam("integer", Some("int32")) },
+        { case ci"Long" ⇒ swaggerParam("integer", Some("int64")) },
+        { case ci"Double" | ci"BigDecimal" ⇒ swaggerParam("number", Some("double")) },
+        { case ci"Float" ⇒ swaggerParam("number", Some("float")) },
+        { case ci"DateTime" ⇒ swaggerParam("integer", Some("epoch")) },
+        { case ci"Any" ⇒ swaggerParam("any").copy(example = Some(JsString("any JSON value"))) }
+      )
+
+      val default: MappingFunction = {
+        case unknown ⇒ swaggerParam(unknown.toLowerCase())
+      }
+      val overrideMatchers: Seq[MappingFunction] = mappingOverrides.map(
+        definition ⇒ {
+          PartialFunction[String, SwaggerParameter]({ case definition.fromType ⇒ swaggerParam(definition.toType, definition.toFormat) })
+        }
+      )
+
+      (overrideMatchers ++ base).find(_.isDefinedAt(tpe)).getOrElse(default)(tpe).copy(
         default = defaultValueO,
         required = defaultValueO.isEmpty
       )
+    }
 
     lazy val itemTypeO = collectionItemType(typeName)
 
@@ -91,4 +104,10 @@ object SwaggerParameterMapper {
     def ci = ("(?i)" + sc.parts.mkString).r
   }
 
+}
+
+case class SwaggerMapping(fromType: String, toType: String, toFormat: Option[String])
+
+object SwaggerMapping {
+  implicit val format = Json.format[SwaggerMapping]
 }
