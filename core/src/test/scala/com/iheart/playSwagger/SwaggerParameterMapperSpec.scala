@@ -19,12 +19,29 @@ class SwaggerParameterMapperSpec extends Specification {
     }
 
     "override mapping to map DateTime to string with format date-time" >> {
-      implicit val mapOverride: Seq[SwaggerMapping] = Seq(SwaggerMapping("org.joda.time.DateTime", "string", Some("date-time")))
-      mapParam(Parameter("fieldWithDateTimeOverRide", "org.joda.time.DateTime", None, None)) == SwaggerParameter(
-        name = "fieldWithDateTimeOverRide",
-        `type` = Option("string"),
-        format = Option("date-time")
-      )
+      "single DateTime" >> {
+        implicit val mapOverride: Seq[SwaggerMapping] = Seq(SwaggerMapping("org.joda.time.DateTime", "string", Some("date-time")))
+        mapParam(Parameter("fieldWithDateTimeOverRide", "org.joda.time.DateTime", None, None)) == SwaggerParameter(
+          name = "fieldWithDateTimeOverRide",
+          `type` = Option("string"),
+          format = Option("date-time")
+        )
+      }
+
+      "sequence of DateTimes" >> {
+        implicit val mapOverride: Seq[SwaggerMapping] = Seq(SwaggerMapping("org.joda.time.DateTime", "string", Some("date-time")))
+        mapParam(Parameter("seqWithDateTimeOverRide", "Option[Seq[org.joda.time.DateTime]]", None, None)) == SwaggerParameter(
+          name = "seqWithDateTimeOverRide",
+          required = false,
+          `type` = Some("array"),
+          items = Some(SwaggerParameter(
+            name = "seqWithDateTimeOverRide",
+            required = true,
+            `type` = Option("string"),
+            format = Option("date-time")
+          ))
+        )
+      }
     }
 
     "map java.util.Date to string with format date-time" >> {
@@ -68,6 +85,7 @@ class SwaggerParameterMapperSpec extends Specification {
     }
 
     "map String to string" >> {
+      // Ensure the overrides don't mess anything up
       implicit val mapOverride: Seq[SwaggerMapping] = Seq(
         SwaggerMapping("java.time.LocalDate", "string", Some("date")),
         SwaggerMapping("java.time.Duration", "integer")
