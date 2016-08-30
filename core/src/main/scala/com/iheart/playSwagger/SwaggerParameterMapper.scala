@@ -75,7 +75,8 @@ object SwaggerParameterMapper {
       val overrideMatchers: Seq[MappingFunction] = mappingOverrides.map(
         definition ⇒ {
           val re = s"(?i)${removeKnownPrefixes(definition.fromType)}".r
-          PartialFunction[String, SwaggerParameter]({ case re() ⇒ swaggerParam(definition.toType, definition.toFormat) })
+          val f: MappingFunction = { case re() ⇒ swaggerParam(definition.toType, definition.format) }
+          f
         }
       )
 
@@ -110,7 +111,7 @@ object SwaggerParameterMapper {
 
 }
 
-case class SwaggerMapping(fromType: String, toType: String, toFormat: Option[String] = None)
+case class SwaggerMapping(fromType: String, toType: String, format: Option[String] = None)
 
 object SwaggerMapping {
   implicit val format = Json.format[SwaggerMapping]

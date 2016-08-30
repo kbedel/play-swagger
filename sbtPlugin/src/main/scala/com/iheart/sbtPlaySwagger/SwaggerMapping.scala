@@ -1,12 +1,9 @@
 package com.iheart.sbtPlaySwagger
 
-case class SwaggerMapping(fromType: String, toType: String, toFormat: Option[String] = None) {
+case class SwaggerMapping(fromType: String, toType: String, format: Option[String] = None) {
   def toJson: String = {
-    val format = toFormat match {
-      case Some(x) ⇒ s""", "format": "$x""""
-      case _       ⇒ ""
-    }
+    val formatStr = format.map(x ⇒ s""", "format": "$x"""").getOrElse("")
 
-    s"""{ "fromType": "$fromType", "toType": "$toType" $format }"""
+    s"""{ "fromType": "$fromType", "toType": "$toType" $formatStr }"""
   }
 }

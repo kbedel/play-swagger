@@ -66,6 +66,18 @@ class SwaggerParameterMapperSpec extends Specification {
         ))
       )
     }
+
+    "map String to string" >> {
+      implicit val mapOverride: Seq[SwaggerMapping] = Seq(
+        SwaggerMapping("java.time.LocalDate", "string", Some("date")),
+        SwaggerMapping("java.time.Duration", "integer")
+      )
+      mapParam(Parameter("strField", "String", None, None)) === SwaggerParameter(
+        name = "strField",
+        `type` = Some("string"),
+        format = None
+      )
+    }
   }
 }
 

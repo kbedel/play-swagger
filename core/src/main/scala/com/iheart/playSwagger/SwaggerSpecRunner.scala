@@ -12,8 +12,8 @@ object SwaggerSpecRunner extends App {
   import SwaggerMapping.format
 
   implicit val mappings: Seq[SwaggerMapping] = Json.parse(mappingsJson).validate[Seq[SwaggerMapping]] match {
-    case JsSuccess(xs, _) ⇒
-      xs
+    case JsSuccess(obj, _) ⇒
+      obj
     case _ ⇒
       Seq()
   }
