@@ -1,5 +1,6 @@
 package com.iheart.playSwagger
 
+import com.iheart.playSwagger.Domain.{CustomTypeMapping, CustomMappings}
 import org.specs2.mutable.Specification
 import play.api.libs.json._
 
@@ -9,10 +10,14 @@ case class Artist(name: String, age: Int)
 case class Student(name: String, teacher: Option[Teacher])
 case class Teacher(name: String)
 
+case class Animal(name: String, keeper: Keeper)
+
+case class Keeper(internalFieldName1: String, internalFieldName2: Int)
+
 case class PolymorphicContainer(item: PolymorphicItem)
 trait PolymorphicItem
 
-case class JavaEnumContainer(status: SampleJavaEnum)
+case class EnumContainer(javaEnum: SampleJavaEnum, scalaEnum: SampleScalaEnum.SampleScalaEnum)
 
 case class AllOptional(a: Option[String], b: Option[String])
 
@@ -41,28 +46,31 @@ class SwaggerSpecGeneratorSpec extends Specification {
       gen.fullPath("p/", "/d//c") === "/p/d//c"
     }
 
-    "respect top level trailing slash" >> {
+    "respect trailing slash from previous element when in route path is root /" >> {
       gen.fullPath("p/", "/") === "/p/"
+    }
+
+    "remove top level trailing slash" >> {
+      gen.fullPath("p", "/") === "/p"
     }
 
   }
 
   "getCfgFile" >> {
-    "valid swagger-settings yml" >> {
-      val result = gen.readCfgFile[Settings]("swagger-settings.yml")
-      result must beSome[Settings]
-      val mappings = result.get.mappings
-      mappings.size mustEqual 2
-      mappings.head.fromType mustEqual "java.time.LocalDate"
-      mappings.head.toType mustEqual "string"
-      mappings.head.format must beSome("date")
-      mappings(1).fromType mustEqual "java.time.Duration"
-      mappings(1).toType mustEqual "integer"
-      mappings(1).format must beNone
+    implicit val cmf = Json.reads[CustomTypeMapping]
+    "valid swagger-custom-mappings yml" >> {
+      val result = gen.readCfgFile[CustomMappings]("swagger-custom-mappings.yml")
+      result must beSome[CustomMappings]
+      val mappings = result.get
+      mappings.size must be_>(2)
+      mappings.head.`type` mustEqual "java\\.time\\.LocalDate"
+      mappings.head.specAsParameter === List(Json.obj("type" → "string", "format" → "date"))
+      mappings.head.specAsProperty must beEmpty
+
     }
 
     "invalid swagger-settings yml" >> {
-      gen.readCfgFile[Settings]("swagger-settings_invalid.yml") must throwA[JsResultException]
+      gen.readCfgFile[CustomMappings]("swagger-custom-mappings_invalid.yml") must throwA[JsResultException]
     }
   }
 
@@ -108,7 +116,7 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
     lazy val addTrackJson = (pathJson \ "/api/station/playedTracks" \ "post").as[JsObject]
     lazy val playerJson = (pathJson \ "/api/player/{pid}/context/{bid}" \ "get").as[JsObject]
     lazy val playerAddTrackJson = (pathJson \ "/api/player/{pid}/playedTracks" \ "post").as[JsObject]
-    lazy val resourceJson = (pathJson \ "/api/resource/").as[JsObject]
+    lazy val resourceJson = (pathJson \ "/api/resource").as[JsObject]
     lazy val allOptionalDefJson = (definitionsJson \ "com.iheart.playSwagger.AllOptional").as[JsObject]
     lazy val artistDefJson = (definitionsJson \ "com.iheart.playSwagger.Artist").as[JsObject]
     lazy val trackJson = (definitionsJson \ "com.iheart.playSwagger.Track").as[JsObject]
@@ -116,7 +124,7 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
     lazy val teacherJson = (definitionsJson \ "com.iheart.playSwagger.Teacher").asOpt[JsObject]
     lazy val polymorphicContainerJson = (definitionsJson \ "com.iheart.playSwagger.PolymorphicContainer").asOpt[JsObject]
     lazy val polymorphicItemJson = (definitionsJson \ "com.iheart.playSwagger.PolymorphicItem").asOpt[JsObject]
-    lazy val javaEnumContainerJson = (definitionsJson \ "com.iheart.playSwagger.JavaEnumContainer").asOpt[JsObject]
+    lazy val enumContainerJson = (definitionsJson \ "com.iheart.playSwagger.EnumContainer").asOpt[JsObject]
     lazy val overriddenDictTypeJson = (definitionsJson \ "com.iheart.playSwagger.DictType").as[JsObject]
 
     def parametersOf(json: JsValue): Seq[JsValue] = {
@@ -183,8 +191,13 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
     }
 
     "read java enum with container" >> {
-      javaEnumContainerJson must beSome[JsObject]
-      (javaEnumContainerJson.get \ "properties" \ "status" \ "enum").asOpt[Seq[String]] === Some(Seq("DISABLED", "ACTIVE"))
+      enumContainerJson must beSome[JsObject]
+      (enumContainerJson.get \ "properties" \ "javaEnum" \ "enum").asOpt[Seq[String]] === Some(Seq("DISABLED", "ACTIVE"))
+    }
+
+    "read scala enum with container" >> {
+      enumContainerJson must beSome[JsObject]
+      (enumContainerJson.get \ "properties" \ "scalaEnum" \ "enum").asOpt[Seq[String]] === Some(Seq("One", "Two"))
     }
 
     "definition property have no name" >> {
@@ -200,6 +213,12 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
       params.length === 1
       (params.head \ "in").asOpt[String] === Some("body")
       (params.head \ "schema" \ "$ref").asOpt[String] === Some("#/definitions/com.iheart.playSwagger.Track")
+    }
+
+    "generate body parameter without in if already provided" >> {
+      val params = parametersOf((pathJson \ "/iWantAQueryBody" \ "post").as[JsObject])
+      params.length === 1
+      (params.head \ "in").asOpt[String] === Some("query")
     }
 
     "does not generate for end points marked as hidden" >> {
@@ -259,7 +278,7 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
     }
 
     "parse controller with custom namespace" >> {
-      (pathJson \ "/api/customResource/" \ "get").asOpt[JsObject] must beSome[JsObject]
+      (pathJson \ "/api/customResource" \ "get").asOpt[JsObject] must beSome[JsObject]
     }
 
     "parse class referenced in option type" >> {
@@ -352,6 +371,44 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
       parameters must contain((entry: JsObject) ⇒
         entry.value.get("name").contains(JsString("notMagic")))
         .exactly(1.times)
+    }
+
+    "hide parameter set to ignore in the custom type mappings" >> {
+
+      val parameters = (pathJson \ "/zoo/zone/{zid}/animals/{aid}" \ "get" \ "parameters").as[Seq[JsObject]]
+      parameters.size === 1
+      parameters must contain((entry: JsObject) ⇒
+        entry.value.get("name").contains(JsString("aid")))
+        .exactly(1.times).not
+
+    }
+
+    "map parameter set according to the custom type mappings" >> {
+
+      val parameters = (pathJson \ "/zoo/zone/{zid}/animals/{aid}" \ "get" \ "parameters").as[Seq[JsObject]]
+      parameters.size === 1
+      parameters.head.value.get("name") === Some(JsString("zid"))
+      parameters.head.value.get("type") === Some(JsString("string"))
+      parameters.head.value.get("required") === Some(JsBoolean(true))
+    }
+
+    "generate definition reference according to custom type mappings" >> {
+
+      val properties = (definitionsJson \ "com.iheart.playSwagger.Animal" \ "properties").as[JsObject]
+      (properties \ "keeper" \ "$ref").as[String] === "#/definitions/Keeper"
+
+      (definitionsJson \ "com.iheart.playSwagger.Keeper").toOption must beEmpty
+    }
+
+    "custom type mappings in definition should be included in required" >> {
+
+      val required = (definitionsJson \ "com.iheart.playSwagger.Animal" \ "required").as[JsArray]
+
+      required.value must contain(JsString("keeper"))
+    }
+
+    "add operation ids" >> {
+      (addTrackJson \ "operationId").as[String] ==== "addPlayedTracks"
     }
 
     // TODO: routes order

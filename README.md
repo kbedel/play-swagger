@@ -79,15 +79,15 @@ You can find the setup in the example project as well.
   
 
 #### Step 1
-For play2.5 add Swagger sbt plugin dependency to your plugins.sbt
+For play2.5 add Swagger sbt plugin dependency to your plugins.sbt (see [the releases tab](https://github.com/iheartradio/play-swagger/releases) for the latest versions)
 
 ```scala
-addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.5.0")
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.5.2")
 ```
 
 For play 2.4 please use a special release build with play 2.4 binary.
 ```scala
-addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.5.0-PLAY2.4")
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.5.2-PLAY2.4")
 
 ```
 Then enable it for your Play app - in build.sbt add `SwaggerPlugin` to the root project like
@@ -95,7 +95,7 @@ Then enable it for your Play app - in build.sbt add `SwaggerPlugin` to the root 
 lazy val root = (project in file(".")).enablePlugins(PlayScala, SwaggerPlugin) //enable plugin
 ```
 
-Also in build.sht add domain package names for play-swagger to auto generate swagger definitions for domain classes mentioned in your routes
+Also in build.sbt add domain package names for play-swagger to auto generate swagger definitions for domain classes mentioned in your routes
 ```Scala
 swaggerDomainNameSpaces := Seq("models")
 ```
@@ -141,6 +141,8 @@ Add the following to your route file
 ### NoDocs ###
 GET   /docs/swagger-ui/*file        controllers.Assets.at(path:String="/public/lib/swagger-ui", file:String)
 
+### NoDocs ###
+GET   /assets/*file                 controllers.Assets.versioned(path="/public", file: Asset)
 ```
 
 The sbt-play-swagger plugin will generate the swagger.json on `sbt run` or `sbt package`
@@ -163,25 +165,44 @@ Code contribution are more than welcome. Make sure that your code is tested and 
 To override any of the automatically generated field, you just need to write the same part in your comment or base swagger spec file. 
 
 #### How to override type mappings?
-To override the type mapping used for any type, create a swagger-settings.yml or swagger-settings.json in conf and add 
-an array of mappings. Each mapping consists of a fromType, a toType, and an optional format. For example
+To override the type mapping used for any type, create a swagger-custom-mappings.yml or swagger-custom-mappings.json in conf and add
+an array of mappings. Each mapping consists of
+
+1. `type` a regex matching the type for which the custom specs is
+1. `specAsParameter` a list of objects to be used when this type is used by a route path parameter or query string parameter. Being a list of json object allows you to expand a single parameter into multiple ones, but in other cases you just need to provide one json object. If you leave this one an empty array, the parameter with this type will be hidden. You must provide a list here, though.
+1. `specAsProperty`, a json object to be used when the type is used as a property in a definition. If you leave this one empty, play-swagger will try to use the first element in `specAsParameter`, please note that although most of the fields are common between the two types of spec, a couple of them aren't.
+
+For example
 ```yaml
-mappings:
-  - fromType: java.time.LocalDate
-    toType: string
-    format: date
-  - fromType: java.time.Duration
-    toType: integer
+---
+  - type: java\.time\.LocalDate
+    specAsParameter:
+      - type: string
+        format: date
+  - type: java\.time\.Duration
+    specAsParameter: []   #this hides the type from query and path parameter
+    specAsProperty:
+      $ref: "#/definitions/Duration"
+
+
 ```
 
-Each mapping consists of the fully-qualified from type, the Swagger type, and an optional Swagger format. The preceding example would
-  result in output like this:
+The preceding example would result in output for a field with type `java.time.LocalDate` like this:
    
 ```json
 "fieldName": {
    "type":"string",
    "format":"date"
 }
+```
+
+#### The spec is missing when built to a docker image using sbt-native-pakcager
+
+@mosche answered this one in #114
+> It's a bit unfortunate the way the docker plugin redefines stage. 
+However, the solution is pretty simple. Just add:
+```Scala
+(stage in Docker) <<= (stage in Docker).dependsOn(swagger)
 ```
 
 #### How to hide an endpoint?
@@ -224,4 +245,4 @@ SwaggerSpecGenerator(domainPackage).generate("myRoutes.routes")
 ```
 
 #### Where to find more examples?
-In the [tests](/src/test/scala/com/iheart/playSwagger/SwaggerSpecGeneratorSpec.scala)!
+In the [tests](/core/src/test/scala/com/iheart/playSwagger/SwaggerSpecGeneratorSpec.scala)!
