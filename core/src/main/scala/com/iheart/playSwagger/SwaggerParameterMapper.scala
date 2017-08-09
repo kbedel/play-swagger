@@ -34,7 +34,15 @@ object SwaggerParameterMapper {
           case ci"Int" | ci"Long"                      ⇒ JsNumber(value.toLong)
           case ci"Double" | ci"Float" | ci"BigDecimal" ⇒ JsNumber(value.toDouble)
           case ci"Boolean"                             ⇒ JsBoolean(value.toBoolean)
-          case _                                       ⇒ JsString(value)
+          case ci"String" ⇒ {
+            val noquotes = value match {
+              case c if c.startsWith("\"\"\"") && c.endsWith("\"\"\"") ⇒ c.substring(3, c.length - 3)
+              case c if c.startsWith("\"") && c.endsWith("\"") ⇒ c.substring(1, c.length - 1)
+              case c ⇒ c
+            }
+            JsString(noquotes)
+          }
+          case _ ⇒ JsString(value)
         }
       }
     }
@@ -64,11 +72,8 @@ object SwaggerParameterMapper {
       GenSwaggerParameter(parameter.name, referenceType = Some(referenceType))
 
     def optionalParam(optionalTpe: String) = {
-      val param = if (isReference(optionalTpe))
-        referenceParam(optionalTpe)
-      else
-        mapParam(parameter.copy(typeName = optionalTpe), modelQualifier = modelQualifier, customMappings = customMappings)
-      param.update(required = false, default = defaultValueO)
+      val asRequired = mapParam(parameter.copy(typeName = optionalTpe), modelQualifier = modelQualifier, customMappings = customMappings)
+      asRequired.update(required = false, default = asRequired.default)
     }
 
     def updateGenParam(param: SwaggerParameter)(update: GenSwaggerParameter ⇒ GenSwaggerParameter): SwaggerParameter = param match {
@@ -117,7 +122,7 @@ object SwaggerParameterMapper {
             mapping.specAsParameter,
             mapping.specAsProperty,
             default = defaultValueO,
-            required = defaultValueO.isEmpty
+            required = defaultValueO.isEmpty && mapping.required
           )
       }
       mf

@@ -82,12 +82,17 @@ You can find the setup in the example project as well.
 For play2.5 add Swagger sbt plugin dependency to your plugins.sbt (see [the releases tab](https://github.com/iheartradio/play-swagger/releases) for the latest versions)
 
 ```scala
-addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.5.2")
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.1")
 ```
 
-For play 2.4 please use a special release build with play 2.4 binary.
+For play 2.6 please use a special release build with play 2.6 binary.
 ```scala
-addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.5.2-PLAY2.4")
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.1-PLAY2.6")
+```
+
+For play 2.4 please use a special release build with play 2.4 binary (No longer maintained after 0.6.0)
+```scala
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.0-PLAY2.4")
 
 ```
 Then enable it for your Play app - in build.sbt add `SwaggerPlugin` to the root project like
@@ -108,7 +113,7 @@ Alternatively, you can create a controller that uses play-swagger lib to generat
 
 
 #### Step 2
-Add a base swagger.yml (or swagger.json) to your resources (for example, conf folder in the play application). This one needs to provide all the required fields according to swagger spec.
+Add a base `swagger.yml` (or `swagger.json`) to your `resources` folder (for example, conf folder in the play application). This file needs to provide all the required fields according to swagger spec.
 
 E.g.
 ```yml
@@ -244,5 +249,38 @@ or if you took the [alternative setup](docs/AlternativeSetup.md)
 SwaggerSpecGenerator(domainPackage).generate("myRoutes.routes")
 ```
 
+#### How do I change the location of the swagger documentation in the packaged app?
+In build.sbt, add
+```scala
+swaggerTarget := "path/to/swagger/location"
+```
+
+#### How do I change the filename of the swagger documentation in the packaged app?
+In build.sbt, add
+```scala
+swaggerFileName := "customSwagger.json"
+```
+
 #### Where to find more examples?
 In the [tests](/core/src/test/scala/com/iheart/playSwagger/SwaggerSpecGeneratorSpec.scala)!
+
+
+#### How to use markup in swagger specs
+You can use markup on your swagger specs by providing `OutputTransformers` classes name to the setting `swaggerOutputTransformers` on your build file.
+
+For example you can use environment variables by adding the configuration:
+```
+    swaggerOutputTransformers := Seq(envOutputTransformer)
+```
+
+Then on your routes file or root swagger file you can use some markup like the one used below for the host field:
+```
+  swagger: "2.0"
+  info:
+    title: "API"
+    description: "REST API"
+    version: "1.0.0"
+  host: ${API_HOST}
+```
+
+This way when the swagger file is parsed the markup `${API_HOST}` is going to be substituted by the content of the environent variable `API_HOST`.
