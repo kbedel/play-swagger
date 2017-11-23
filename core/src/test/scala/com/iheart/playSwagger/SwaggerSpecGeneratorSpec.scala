@@ -1,6 +1,6 @@
 package com.iheart.playSwagger
 
-import com.iheart.playSwagger.Domain.{CustomTypeMapping, CustomMappings}
+import com.iheart.playSwagger.Domain.{ CustomTypeMapping, CustomMappings }
 import org.specs2.mutable.Specification
 import play.api.libs.json._
 
@@ -20,6 +20,9 @@ trait PolymorphicItem
 case class EnumContainer(javaEnum: SampleJavaEnum, scalaEnum: SampleScalaEnum.SampleScalaEnum)
 
 case class AllOptional(a: Option[String], b: Option[String])
+
+trait Parent
+case class Child(name: String) extends Parent
 
 class SwaggerSpecGeneratorSpec extends Specification {
   implicit val cl = getClass.getClassLoader
@@ -106,7 +109,7 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
       (json \ "paths" \ "/player/{pid}/context/{bid}").asOpt[JsObject] must beSome
     }
 
-    lazy val json = SwaggerSpecGenerator("com.iheart").generate("test.routes").get
+    lazy val json = SwaggerSpecGenerator(false, "com.iheart").generate("test.routes").get
     lazy val pathJson = json \ "paths"
     lazy val definitionsJson = json \ "definitions"
     lazy val postBodyJson = (pathJson \ "/post-body" \ "post").as[JsObject]
@@ -364,9 +367,7 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
         "type" → "object",
         "properties" → Json.obj(
           "id" → Json.obj("type" → "string"),
-          "value" → Json.obj("type" → "string")
-        )
-      )
+          "value" → Json.obj("type" → "string")))
     }
 
     "definition properties does not contain 'required' boolean field" >> {
@@ -471,13 +472,42 @@ class SwaggerSpecGeneratorIntegrationSpec extends Specification {
       third must beSome[Int]
       fourth must beSome[Int]
 
-      // must be in exact order with nothing inbetween 
+      // must be in exact order with nothing inbetween
       second.get - first.get === 1
       third.get - second.get === 1
       fourth.get - third.get === 1
     }
 
+    "should retain $refs in 'swagger-custom-mappings'" >> {
+      (definitionsJson \ "com.iheart.playSwagger.Child").toOption.isDefined === true
+    }
   }
 
+  "integration v3" >> {
+    lazy val json = SwaggerSpecGenerator(true, "com.iheart").generate("testV3.routes").get
+    lazy val componentSchemasJson = json \ "components" \ "schemas"
+    lazy val trackJson = (componentSchemasJson \ "com.iheart.playSwagger.Track").as[JsObject]
+
+    "read definition from referenceTypes" >> {
+      (trackJson \ "properties" \ "name" \ "type").as[String] === "string"
+    }
+
+    "param data type values are in the correct location" >> {
+      val contextParams = json \ "paths" \ "/{pid}/context/{bid}" \ "get" \ "parameters"
+      val firstParam = contextParams \ 0
+      (firstParam \ "schema" \ "type").as[String] === "string"
+      (firstParam \ "required").as[Boolean] === true
+    }
+
+    "custom param data type values are in the correct location" >> {
+      val parameters = (json \ "paths" \ "/zoo/zone/{zid}/animals/{aid}" \ "get" \ "parameters").as[Seq[JsObject]]
+      parameters.size === 1
+
+      val firstParam = parameters.head
+      (firstParam \ "name").as[String] === "zid"
+      (firstParam \ "schema" \ "type").as[String] === "string"
+      (firstParam \ "required").as[Boolean] === true
+    }
+  }
 }
 
