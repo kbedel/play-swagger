@@ -81,18 +81,19 @@ You can find the setup in the example project as well.
 #### Step 1
 For play2.5 add Swagger sbt plugin dependency to your plugins.sbt (see [the releases tab](https://github.com/iheartradio/play-swagger/releases) for the latest versions)
 
+For Play 2.5
 ```scala
-addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.4")
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.5")
 ```
 
-For play 2.6 and sbt 0.1.3 please use a special release build with play 2.6 binary.
+For play 2.6, sbt 1.x and Scala 2.12.x please use 
+```scala
+addSbtPlugin("com.iheart" %% "sbt-play-swagger" % "0.7.4")
+```
+
+For play 2.6 and sbt 0.13.x please use a special release build with play 2.6 binary. (No longer maintained after 0.6.2)
 ```scala
 addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.2-PLAY2.6")
-```
-
-For play 2.6 and sbt 1.0 please use 
-```scala
-addSbtPlugin("com.iheart" %% "sbt-play-swagger" % "0.7.3")
 ```
 
 For play 2.4 please use a special release build with play 2.4 binary (No longer maintained after 0.6.0)
@@ -100,6 +101,7 @@ For play 2.4 please use a special release build with play 2.4 binary (No longer 
 addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.0-PLAY2.4")
 
 ```
+
 Then enable it for your Play app - in build.sbt add `SwaggerPlugin` to the root project like
 ```Scala
 lazy val root = (project in file(".")).enablePlugins(PlayScala, SwaggerPlugin) //enable plugin
@@ -127,13 +129,13 @@ E.g.
   info: 
     title: "Poweramp API"
     description: "Power your music"
-    version: "1.0.0"
   consumes:
     - application/json
   produces: 
     - application/json
 
 ```
+Note that `info.version` is intentionally left out, playSwagger will automatically fillin the build version of the project. However if the version is set here it will be honored. You can also dynamically generate the version string in build file using the `swaggerAPIVersion` setting.   
 
 #### Step 3a
 Deploy a swagger ui and point to the swagger spec end point at 'assets/swagger.json', or
@@ -284,7 +286,6 @@ Then on your routes file or root swagger file you can use some markup like the o
   info:
     title: "API"
     description: "REST API"
-    version: "1.0.0"
   host: ${API_HOST}
 ```
 
@@ -306,3 +307,8 @@ Make sure you also update your swagger markup to specify that you are using Open
 ```
 
 Also, for `$ref` fields you will want to prefix paths with `#/components/schemas/` instead of `#/definitions/`
+
+
+#### Is play java supported? 
+
+Mostly. Auto definition generation for classes only works with Java classes that have all the fields in the first constructor. 
