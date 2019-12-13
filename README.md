@@ -1,7 +1,6 @@
 
 [![Build Status](https://travis-ci.org/iheartradio/play-swagger.svg)](https://travis-ci.org/iheartradio/play-swagger)
 [![Coverage Status](https://coveralls.io/repos/iheartradio/play-swagger/badge.svg?branch=master&service=github)](https://coveralls.io/github/iheartradio/play-swagger?branch=master)
-[![Stories in Ready](https://badge.waffle.io/iheartradio/play-swagger.svg?label=ready&title=Ready)](http://waffle.io/iheartradio/play-swagger)
 [ ![Download](https://api.bintray.com/packages/iheartradio/maven/play-swagger/images/download.svg) ](https://bintray.com/iheartradio/maven/play-swagger/_latestVersion)
 [![Gitter](https://badges.gitter.im/iheartradio/play-swagger.svg)](https://gitter.im/iheartradio/play-swagger?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
@@ -39,6 +38,8 @@ This allows newly added endpoints to be automatically included in swagger with s
 ```
  ###
  #  summary: create a card 
+ #  tags:
+ #    - Card Endpoints
  #  responses:
  #    200:
  #      description: success
@@ -79,24 +80,29 @@ You can find the setup in the example project as well.
   
 
 #### Step 1
-For play2.5 add Swagger sbt plugin dependency to your plugins.sbt (see [the releases tab](https://github.com/iheartradio/play-swagger/releases) for the latest versions)
 
-For Play 2.5
-```scala
-addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.5")
-```
 
 For play 2.6, sbt 1.x and Scala 2.12.x please use 
 ```scala
-addSbtPlugin("com.iheart" %% "sbt-play-swagger" % "0.7.4")
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.9.0")
 ```
 
-For play 2.6 and sbt 0.13.x please use a special release build with play 2.6 binary. (No longer maintained after 0.6.2)
+For play 2.7, sbt 1.x please use
+```scala
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.9.0-PLAY2.7")
+```
+
+For play 2.6 and sbt 0.13.x please use a special release  (No longer maintained after 0.6.2)
 ```scala
 addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.2-PLAY2.6")
+
+```
+For Play 2.5 (No longer maintained after 0.6.5)
+```scala
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.5") 
 ```
 
-For play 2.4 please use a special release build with play 2.4 binary (No longer maintained after 0.6.0)
+For play 2.4 (No longer maintained after 0.6.0)
 ```scala
 addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.0-PLAY2.4")
 
@@ -208,6 +214,15 @@ The preceding example would result in output for a field with type `java.time.Lo
 }
 ```
 
+#### How to use a custom naming strategy?
+
+To use a custom naming strategies to override your case classes field names, you need to add this to your `build.sbt`:
+
+```scala
+//default is 'none', which is your camelCased case class
+swaggerNamingStrategy := "snake_case" //kebab-case, lowercase and UpperCamelCase also available
+```
+
 #### The spec is missing when built to a docker image using sbt-native-pakcager
 
 @mosche answered this one in #114
@@ -268,6 +283,12 @@ In build.sbt, add
 swaggerFileName := "customSwagger.json"
 ```
 
+#### How to output formatted json in swagger documentation file?
+In build.sbt, add
+```scala
+swaggerPrettyJson := true
+```
+
 #### Where to find more examples?
 In the [tests](/core/src/test/scala/com/iheart/playSwagger/SwaggerSpecGeneratorSpec.scala)!
 
@@ -306,7 +327,17 @@ Make sure you also update your swagger markup to specify that you are using Open
     version: "1.0.0"
 ```
 
-Also, for `$ref` fields you will want to prefix paths with `#/components/schemas/` instead of `#/definitions/`
+Also, for `$ref` fields you will want to prefix paths with `#/components/schemas/` instead of `#/definitions/`. For example:
+
+```
+###  
+#  parameters:
+#    - name: body
+#      schema:
+#        $ref: '#/components/schemas/com.iheart.api.Track'
+###
+POST   /tracks       controller.Api.createTrack()
+```
 
 
 #### Is play java supported? 

@@ -8,7 +8,7 @@ import sbt.{ AutoPlugin, _ }
 import com.typesafe.sbt.web.Import._
 
 object SwaggerPlugin extends AutoPlugin {
-  lazy val swaggerConfig = config("play-swagger").hide
+  lazy val SwaggerConfig = config("play-swagger").hide
   lazy val playSwaggerVersion = com.iheart.playSwagger.BuildInfo.version
 
   object autoImport extends SwaggerKeys
@@ -19,13 +19,13 @@ object SwaggerPlugin extends AutoPlugin {
 
   import autoImport._
 
-  override def projectConfigurations: Seq[Configuration] = Seq(swaggerConfig)
+  override def projectConfigurations: Seq[Configuration] = Seq(SwaggerConfig)
 
   override def projectSettings: Seq[Setting[_]] = Seq(
-    ivyConfigurations += swaggerConfig,
+    ivyConfigurations += SwaggerConfig,
     resolvers += Resolver.jcenterRepo,
     //todo: remove hardcoded org name using BuildInfo
-    libraryDependencies += "com.iheart" %% "play-swagger" % playSwaggerVersion % swaggerConfig,
+    libraryDependencies += "com.iheart" %% "play-swagger" % playSwaggerVersion % SwaggerConfig,
     swaggerDomainNameSpaces := Seq(),
     swaggerV3 := false,
     swaggerTarget := target.value / "swagger",
@@ -33,6 +33,8 @@ object SwaggerPlugin extends AutoPlugin {
     swaggerRoutesFile := "routes",
     swaggerOutputTransformers := Seq(),
     swaggerAPIVersion := version.value,
+    swaggerPrettyJson := false,
+    swaggerNamingStrategy := "none",
     swagger := Def.task[File] {
       (swaggerTarget.value).mkdirs()
       val file = swaggerTarget.value / swaggerFileName.value
@@ -42,13 +44,15 @@ object SwaggerPlugin extends AutoPlugin {
         swaggerOutputTransformers.value.mkString(",") ::
         swaggerV3.value.toString ::
         swaggerAPIVersion.value ::
+        swaggerPrettyJson.value.toString ::
+        swaggerNamingStrategy.value.toString ::
         Nil
-      val swaggerClasspath = data((fullClasspath in Runtime).value) ++ update.value.select(configurationFilter(swaggerConfig.name))
-      toError(runner.value.run("com.iheart.playSwagger.SwaggerSpecRunner", swaggerClasspath, args, streams.value.log))
+      val swaggerClasspath = data((fullClasspath in Runtime).value) ++ update.value.select(configurationFilter(SwaggerConfig.name))
+      runner.value.run("com.iheart.playSwagger.SwaggerSpecRunner", swaggerClasspath, args, streams.value.log).failed foreach (sys error _.getMessage)
       file
     }.value,
     unmanagedResourceDirectories in Assets += swaggerTarget.value,
-    mappings in (Compile, packageBin) += (swaggerTarget.value / swaggerFileName.value) → s"public/${swaggerFileName.value}", //include it in the unmanagedResourceDirectories in Assets doesn't automatically include it package
+    mappings in (Compile, packageBin) += (swagger.value) → s"public/${swaggerFileName.value}", //include it in the unmanagedResourceDirectories in Assets doesn't automatically include it package
     packageBin in Universal := (packageBin in Universal).dependsOn(swagger).value,
     run := (run in Compile).dependsOn(swagger).evaluated,
     stage := stage.dependsOn(swagger).value)
